@@ -1,0 +1,179 @@
+## wrapper functions for ksmooth (base),
+
+ksmooth.md <- function(grids, yarray, bandwidth=5.0, ...){
+  ## multi-dim ksmooth wrapper.  grids: a list of (marginal)
+  ## coordinates. yarray: an m-dim array of values to be smoothed.
+  ## dim(yarray) must be sapply(grids, length) otherwise this function
+  ## won't work.
+  ## Still needs some work for one dim array.
+  Y <- as.array(yarray)
+  if (any(dim(Y) != sapply(grids, length))){
+    stop("Dimensions of coordinates (grids) and values (yarray) do not match.")
+  } else K <- length(dim(Y))
+  y.k <- Y
+  for (k in 1:K){
+    y.k <- aperm(apply(y.k, seq(K)[-k], function(y) ksmooth(grids[[k]], y, n.points=length(grids[[k]]), bandwidth=bandwidth, ...)$y), append(2:K, 1, k-1))
+  }
+  return(y.k)
+}
+
+## my own implementation of FWER controlling MTP based on SCB (equal
+## variance version).  Future work: est. STD for each voxel and use it
+## as a weight.  It has to be done in the pre.post.test() function
+## because with weight, the rule of finding max/min will be different.
+## [update 05/03/11] No, don't implement STD at this level at all.  Do
+## variable transformations based on directional variance first; then
+## do pre.post.test as usual and be done with the individual adjusted
+## p.values. Optional: transform the bands back to the original scale
+## if we have to report conf. band.
+.p.scb <- function(y, band.up, band.down, balanced=TRUE, method=c("null", "normal"), ...){
+  ## (FWER) adjusted p-value based on the simultaneous confidence
+  ## band. Balanced: use one sided version for abs(diff); unbalanced:
+  ## times 2 is conservative/asymptotically exact.
+  Ns <- dim(y)
+  if (balanced){
+    ## bands <- pmax(abs(band.up), abs(band.down))
+    bands <- abs(c(band.up, band.down))
+    pscb <- foreach (m=method) %dopar% array(genboot.test(bands, abs(y), method=m, ...), Ns)
+  } else {
+    pscb <- foreach (m=method) %dopar% {
+      p.up <- genboot.test(band.up, y, method=m, ...)
+      p.down <- genboot.test(band.down, y, alternative="less", method=m, ...)
+      array(pmin(1.0, 2*pmin(p.up, p.down)), Ns)
+    }
+  }
+  names(pscb) <- method
+  return(pscb)
+}
+
+## A customized combine function
+.combfun <- function(x1, x2) {
+  list("norms"=rbind(x1$norms, x2$norms),
+       "band.up"=c(x1$band.up, x2$band.up),
+       "band.down"=c(x1$band.down, x2$band.down),
+       "pcounts"=x1$pcounts + x2$pcounts) #needs to be divided later
+}
+
+## Wrapper for doing the global and pointwise inference for 1 pre and
+## 1 post images.
+
+## The stopping rule is currently not implemented due to a) a
+## deficiency of foreach loop; b) I need to compute the distribution
+## of p-value under H0 anyway.  If implemented, stop.p will be a
+## (conservative) stopping rule based on cumulative nonparametric
+## global p-values.  1.0 means no stop at all, which is necessary for
+## est. p-value /distribution/ under H0.  Otherwise, use 0.05 can save
+## computing time dramatically.
+pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=500, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"), MTP="BH", ...){
+  DIFF <- post - pre                       #the difference map
+  Ns <- dim(DIFF)
+  fit.orig <- ksmooth.md(grids, DIFF, bandwidth=bandwidth, kernel=ks.kernel)
+  norms.orig <- norms(fit.orig)
+  ##usually DIFF is very large, by default we only record 0.1%
+  ##quantiles for efficiency.
+  rr <- foreach (j=1:perms, .combine=.combfun) %dopar% {
+    DIFF.j <- flip(DIFF)
+    ## .norms.ks(grids, DIFF.j, norm, bandwidth=bandwidth, kernel=ks.kernel)
+    fit.diff <- ksmooth.md(grids, DIFF.j, bandwidth=bandwidth, kernel=ks.kernel)
+    list("norms"=norms(fit.diff, norm=norm),
+         "band.up"=max(fit.diff),
+         "band.down"=min(fit.diff),
+         "pcounts"=rev.rank(fit.orig, fit.diff)
+         )
+  }
+  rawp <- rr$pcounts/(perms*prod(Ns))
+  band.up <- rr$band.up; band.down <- rr$band.down
+  ## Inference
+  p.global <- foreach (n=norm, .combine="cbind") %:% foreach (m=method, .combine="c") %dopar% {
+    genboot.test(rr$norms[,n], norms.orig[n], method=m, ...)
+  }; dimnames(p.global) <- list(method, norm)
+  fwer.adj.p <- .p.scb(fit.orig, band.up, band.down, balanced=balanced, method=method)
+  return(list("p.global"=p.global,
+              "fwer.adj.p"=fwer.adj.p,
+              "fdr.adj.p"=array(p.adjust(rawp, MTP), Ns),
+              "fit.orig"=fit.orig,
+              "band.up"=band.up,
+              "band.down"=band.down))
+}
+
+.list.mean <- function(Alist){
+  ## when I have time, I need to rewrite the below function in C
+  ## because this is of order N choose Nx, and it will become the
+  ## bottleneck when N choose Nx is > 175*Nx, or about 7 scans in
+  ## each group.
+  ss <- foreach(aa=Alist, .combine="+") %do% aa
+  return(ss/length(Alist))
+}
+
+## rep.test.  pre.list, post.list are repeated pre/post scans from the
+## same subject.  This is to ensure the exchangeability of spatial
+## points.  The region is detected by mean diff, which is the best I
+## can think of at this moment because N-dist itself is a *summary*
+## statistic, it is not designed to make per-voxel inference.
+
+## 05/23/2011.  Added the symmetry trick. See pre-print for more
+## details.  Option rand.comp is the number of random combinations to
+## be sampled (second layer resampling).  It defaults to not using
+## random combinations because it is simply crazy to assume somebody
+## have more than 20 pre/post scans!  However, just for the sake of
+## writing a robust function, and just in case some morons will test
+## this program in a completely unintended environment, I decide to
+## add this layer of flexibility anyway.
+rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", ndist.kernel=c("L1","L2","Linf"), method=c("null", "normal"), MTP="BH", ...){
+  Nx <- length(pre.list); Ny <- length(post.list); N <- Nx+Ny
+  Ns <- dim(pre.list[[1]])
+  if (rand.comb == 0){ #enumerate ALL combinations. Works for N <= 20.
+    combs <- combn(N, Nx, function(x) c(x,setdiff(1:N,x)), simplify=FALSE)
+  } else { #random permutations are the SAME as random combinations, see pre-print for more details.
+    combs <- foreach(icount(rand.comb)) %do% sample(N)
+  }
+  K <- length(combs)
+  X.ks <- foreach (x=pre.list) %dopar% {
+    ksmooth.md(grids, x, bandwidth=bandwidth, kernel=ks.kernel)
+  }
+  Y.ks <- foreach (y=post.list) %dopar% {
+    ksmooth.md(grids, y, bandwidth=bandwidth, kernel=ks.kernel)
+  }
+  fit.orig <- .list.mean(Y.ks) - .list.mean(X.ks)
+  norms.orig <- Ndist(X.ks, Y.ks, kernel=ndist.kernel)
+  rr <- foreach (j=1:perms, .combine=.combfun) %dopar% {
+    XY <- spatial.perm(c(pre.list, post.list))
+    XY.ks <- foreach (x=XY) %do% {
+      ksmooth.md(grids, x, bandwidth=bandwidth, kernel=ks.kernel)
+    }
+    ## Now the loop for all combinations
+    band.up <- rep(0,K); band.down <- rep(0,K); pcounts <- rep(0,prod(Ns))
+    for (k in 1:K){
+      X.ind <- combs[[k]][1:Nx]; Y.ind <- combs[[k]][(Nx+1):N]
+      fit.diff <- .list.mean(XY.ks[X.ind]) - .list.mean(XY.ks[Y.ind])
+      band.up[k] <- max(fit.diff); band.down[k] <- min(fit.diff)
+      pcounts <- pcounts + rev.rank(fit.orig, fit.diff)
+    }
+    ## return these values to the master node
+    list("norms"=Ndist.perm(XY.ks[1:Nx], XY.ks[(Nx+1):N], combs, kernel=ndist.kernel),
+         "band.up"=band.up,
+         "band.down"=band.down,
+         "pcounts"=pcounts
+         )
+  }
+  rawp <- rr$pcounts/(perms*K*prod(Ns))
+  band.up <- rr$band.up; band.down <- rr$band.down
+  ## Inference
+  p.global <- foreach (n=norm, .combine="cbind") %:% foreach (m=method, .combine="c") %dopar% {
+    genboot.test(rr$norms[,n], norms.orig[n], method=m, ...)
+  }; dimnames(p.global) <- list(method, norm)
+  fwer.adj.p <- .p.scb(fit.orig, band.up, band.down, balanced=balanced, method=method)
+  return(list("p.global"=p.global,
+              "fwer.adj.p"=fwer.adj.p,
+              "fdr.adj.p"=array(p.adjust(rawp, MTP), Ns),
+              "fit.orig"=fit.orig,
+              "band.up"=band.up,
+              "band.down"=band.down))
+}
+
+## To be implemented: paired test and group test.
+
+## This version doesn't detect a common diff. region.  Maybe in the
+## future I can think of some reasonable way of detecting common
+## diff. region.
+

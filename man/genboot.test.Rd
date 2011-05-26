@@ -46,7 +46,7 @@ genboot.test(nullvec, x, alternative="greater", method="normal", ...)
 \seealso{\code{\link{starship}}, \code{\link{sn.em}}}
 \examples{
 nv <- sort(round(rnorm(200),2))
-## These three are very fast
+## These two are very fast
 genboot.test(nv, 1:3, method="null")
 genboot.test(nv, 1:3, method="normal")
 
@@ -55,7 +55,7 @@ library(sn)
 library(gld)
 genboot.test(nv, 1:3, method="sn")
 
-## This is slow, may take about 10 seconds to run on a decent computer.
+## This is quite slow. It take about 10 seconds to run on my PC (4x 2.33GHz), YMMV.
 \dontrun{genboot.test(nv, 1:3, method="gld")}
 }                               % end examples.
 

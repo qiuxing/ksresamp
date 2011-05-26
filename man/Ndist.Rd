@@ -45,14 +45,14 @@ Ndist.perm(Xlist, Ylist, combs, kernels=c("L1", "L2", "Linf"))
 \author{Xing Qiu}
 \examples{
 ## Generate some FA maps
-N.x <- 64; N.y <- 64; N.z <- 3
+N.x <- 32; N.y <- 32; N.z <- 3
 for (i in 1:8) assign(paste("FA",i,sep=""), array(rnorm(N.x*N.y*N.z), c(N.x,N.y,N.z)))
 grids <- list(2*(1:N.x)-1, 2*(1:N.y)-1, 2*(1:N.z)-1)
 Xlist <- list(FA1, FA2, FA3, FA4); Ylist <- list(FA5, FA6, FA7, FA8)
 
 Ndist(Xlist, Ylist) # a vector of length 3
 
-## Now generate a list of all 70 possible combinations.
+## Now generate a list of 70 possible combinations.
 combs <- combn(8, 4, function(x) c(x,setdiff(1:8,x)), simplify=FALSE)
 Ndist.perm(Xlist, Ylist, combs) # a 70x3 matrix.
 

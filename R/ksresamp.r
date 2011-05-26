@@ -119,7 +119,7 @@ pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=500, balanced=T
 ## writing a robust function, and just in case some morons will test
 ## this program in a completely unintended environment, I decide to
 ## add this layer of flexibility anyway.
-rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", ndist.kernel=c("L1","L2","Linf"), method=c("null", "normal"), MTP="BH", ...){
+rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"), MTP="BH", ...){
   Nx <- length(pre.list); Ny <- length(post.list); N <- Nx+Ny
   Ns <- dim(pre.list[[1]])
   if (rand.comb == 0){ #enumerate ALL combinations. Works for N <= 20.
@@ -135,7 +135,7 @@ rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.c
     ksmooth.md(grids, y, bandwidth=bandwidth, kernel=ks.kernel)
   }
   fit.orig <- .list.mean(Y.ks) - .list.mean(X.ks)
-  norms.orig <- Ndist(X.ks, Y.ks, kernel=ndist.kernel)
+  norms.orig <- Ndist(X.ks, Y.ks, kernel=norm)
   rr <- foreach (j=1:perms, .combine=.combfun) %dopar% {
     XY <- spatial.perm(c(pre.list, post.list))
     XY.ks <- foreach (x=XY) %do% {
@@ -150,7 +150,7 @@ rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.c
       pcounts <- pcounts + rev.rank(fit.orig, fit.diff)
     }
     ## return these values to the master node
-    list("norms"=Ndist.perm(XY.ks[1:Nx], XY.ks[(Nx+1):N], combs, kernel=ndist.kernel),
+    list("norms"=Ndist.perm(XY.ks[1:Nx], XY.ks[(Nx+1):N], combs, kernel=norm),
          "band.up"=band.up,
          "band.down"=band.down,
          "pcounts"=pcounts

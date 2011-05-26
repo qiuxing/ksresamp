@@ -95,17 +95,17 @@ Ndist.perm <- function(Xlist, Ylist, combs, kernels=c("L1", "L2", "Linf")){
 }
 
 ## flip: sort of wild bootstrap for an array.  Group action: G \cong 2^N.
-flip <- function(yarray){
-  Y <- as.array(yarray)
+flip <- function(diff.array){
+  Y <- as.array(diff.array)
   g <- 2*array(rbinom(length(Y), 1, .5), dim(Y))-1
   return(g*Y)
 }
 
-## Alist: a list of n arrays which are i.i.d. random vectors of length
+## XYlist: a list of n arrays which are i.i.d. random vectors of length
 ## N under H0.  Permutation group action: G \cong n^N.
-spatial.perm <- function(Alist){
-  n <- length(Alist); Ns <- dim(Alist[[1]])
-  Amat <- matrix(unlist(Alist), nrow=prod(Ns))
+spatial.perm <- function(XYlist){
+  n <- length(XYlist); Ns <- dim(XYlist[[1]])
+  Amat <- matrix(unlist(XYlist), nrow=prod(Ns))
   Bmat <- t(apply(Amat, 1, sample))
   foreach(col=iter(Bmat)) %do% array(col, Ns)
 }

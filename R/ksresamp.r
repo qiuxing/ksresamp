@@ -32,8 +32,8 @@ ksmooth.md <- function(grids, yarray, bandwidth=5.0, ...){
   ## times 2 is conservative/asymptotically exact.
   Ns <- dim(y)
   if (balanced){
-    ## bands <- pmax(abs(band.up), abs(band.down))
-    bands <- abs(c(band.up, band.down))
+    bands <- pmax(abs(band.up), abs(band.down))
+    ## bands <- abs(c(band.up, band.down))  this doesn't work ... needs more study!
     pscb <- foreach (m=method) %dopar% array(genboot.test(bands, abs(y), method=m, ...), Ns)
   } else {
     pscb <- foreach (m=method) %dopar% {

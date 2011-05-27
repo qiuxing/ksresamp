@@ -51,6 +51,7 @@ ksmooth.md <- function(grids, yarray, bandwidth=5.0, ...){
   list("norms"=rbind(x1$norms, x2$norms),
        "band.up"=c(x1$band.up, x2$band.up),
        "band.down"=c(x1$band.down, x2$band.down),
+       "wycounts"=x1$wycounts + x2$wycounts, #needs to be divided later
        "pcounts"=x1$pcounts + x2$pcounts) #needs to be divided later
 }
 
@@ -66,35 +67,44 @@ ksmooth.md <- function(grids, yarray, bandwidth=5.0, ...){
 ## computing time dramatically.
 pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=500, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"), MTP="BH", ...){
   DIFF <- post - pre                       #the difference map
-  Ns <- dim(DIFF)
+  Ns <- dim(DIFF); NN <- prod(Ns)
   fit.orig <- ksmooth.md(grids, DIFF, bandwidth=bandwidth, kernel=ks.kernel)
   norms.orig <- norms(fit.orig)
-  ##usually DIFF is very large, by default we only record 0.1%
-  ##quantiles for efficiency.
+  ## WY proc
+  T <- abs(fit.orig)
+  ord <- order(T); ro <- order(ord); Tord <- T[ord]
+
   rr <- foreach (j=1:perms, .combine=.combfun) %dopar% {
     DIFF.j <- flip(DIFF)
     ## .norms.ks(grids, DIFF.j, norm, bandwidth=bandwidth, kernel=ks.kernel)
     fit.diff <- ksmooth.md(grids, DIFF.j, bandwidth=bandwidth, kernel=ks.kernel)
+    Tk <- abs(fit.diff)
+    Uk <- cummax(Tk[ord])
+    ## return these values to the master node
     list("norms"=norms(fit.diff, norm=norm),
          "band.up"=max(fit.diff),
          "band.down"=min(fit.diff),
-         "pcounts"=rev.rank(fit.orig, fit.diff)
+         "pcounts"=rev.rank(fit.orig, fit.diff),
+         "wycounts"=as.integer(Uk >= Tord)
          )
   }
-  rawp <- rr$pcounts/(perms*prod(Ns))
+  rawp <- rr$pcounts/(perms*NN)
+  wy.adj.p <- array(cummax(rr$wycounts[NN:1])[NN:1],Ns)/perms
   band.up <- rr$band.up; band.down <- rr$band.down
   ## Inference
   p.global <- foreach (n=norm, .combine="cbind") %:% foreach (m=method, .combine="c") %dopar% {
     genboot.test(rr$norms[,n], norms.orig[n], method=m, ...)
   }; dimnames(p.global) <- list(method, norm)
-  fwer.adj.p <- .p.scb(fit.orig, band.up, band.down, balanced=balanced, method=method)
+  scb.adj.p <- .p.scb(fit.orig, band.up, band.down, balanced=balanced, method=method)
   return(list("p.global"=p.global,
-              "fwer.adj.p"=fwer.adj.p,
+              "scb.adj.p"=scb.adj.p,
+              "wy.adj.p"=wy.adj.p,
               "fdr.adj.p"=array(p.adjust(rawp, MTP), Ns),
               "fit.orig"=fit.orig,
               "band.up"=band.up,
               "band.down"=band.down))
 }
+
 
 .list.mean <- function(Alist){
   ## when I have time, I need to rewrite the below function in C
@@ -121,7 +131,7 @@ pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=500, balanced=T
 ## add this layer of flexibility anyway.
 rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"), MTP="BH", ...){
   Nx <- length(pre.list); Ny <- length(post.list); N <- Nx+Ny
-  Ns <- dim(pre.list[[1]])
+  Ns <- dim(pre.list[[1]]); NN <- prod(Ns)
   if (rand.comb == 0){ #enumerate ALL combinations. Works for N <= 20.
     combs <- combn(N, Nx, function(x) c(x,setdiff(1:N,x)), simplify=FALSE)
   } else { #random permutations are the SAME as random combinations, see pre-print for more details.
@@ -136,35 +146,46 @@ rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.c
   }
   fit.orig <- .list.mean(Y.ks) - .list.mean(X.ks)
   norms.orig <- Ndist(X.ks, Y.ks, kernel=norm)
+  ## WY proc
+  T <- abs(fit.orig)
+  ord <- order(T); ro <- order(ord); Tord <- T[ord]
+
   rr <- foreach (j=1:perms, .combine=.combfun) %dopar% {
     XY <- spatial.perm(c(pre.list, post.list))
     XY.ks <- foreach (x=XY) %do% {
       ksmooth.md(grids, x, bandwidth=bandwidth, kernel=ks.kernel)
     }
     ## Now the loop for all combinations
-    band.up <- rep(0,K); band.down <- rep(0,K); pcounts <- rep(0,prod(Ns))
+    band.up <- rep(0,K); band.down <- rep(0,K); pcounts <- rep(0,NN)
+    wycounts <- rep(0,NN)
     for (k in 1:K){
       X.ind <- combs[[k]][1:Nx]; Y.ind <- combs[[k]][(Nx+1):N]
       fit.diff <- .list.mean(XY.ks[X.ind]) - .list.mean(XY.ks[Y.ind])
+      Tk <- abs(fit.diff)
+      Uk <- cummax(Tk[ord])
       band.up[k] <- max(fit.diff); band.down[k] <- min(fit.diff)
-      pcounts <- pcounts + rev.rank(fit.orig, fit.diff)
+      pcounts <- pcounts + rev.rank(T, Tk)
+      wycounts <- wycounts + as.integer(Uk >= Tord)
     }
     ## return these values to the master node
     list("norms"=Ndist.perm(XY.ks[1:Nx], XY.ks[(Nx+1):N], combs, kernel=norm),
          "band.up"=band.up,
          "band.down"=band.down,
-         "pcounts"=pcounts
+         "pcounts"=pcounts,
+         "wycounts"=wycounts
          )
   }
-  rawp <- rr$pcounts/(perms*K*prod(Ns))
+  rawp <- rr$pcounts/(perms*K*NN)
+  wy.adj.p <- array(cummax(rr$wycounts[NN:1])[NN:1],Ns)/(perms*K)
   band.up <- rr$band.up; band.down <- rr$band.down
   ## Inference
   p.global <- foreach (n=norm, .combine="cbind") %:% foreach (m=method, .combine="c") %dopar% {
     genboot.test(rr$norms[,n], norms.orig[n], method=m, ...)
   }; dimnames(p.global) <- list(method, norm)
-  fwer.adj.p <- .p.scb(fit.orig, band.up, band.down, balanced=balanced, method=method)
+  scb.adj.p <- .p.scb(fit.orig, band.up, band.down, balanced=balanced, method=method)
   return(list("p.global"=p.global,
-              "fwer.adj.p"=fwer.adj.p,
+              "scb.adj.p"=scb.adj.p,
+              "wy.adj.p"=wy.adj.p,
               "fdr.adj.p"=array(p.adjust(rawp, MTP), Ns),
               "fit.orig"=fit.orig,
               "band.up"=band.up,

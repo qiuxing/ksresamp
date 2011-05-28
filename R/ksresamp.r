@@ -65,7 +65,7 @@ ksmooth.md <- function(grids, yarray, bandwidth=5.0, ...){
 ## global p-values.  1.0 means no stop at all, which is necessary for
 ## est. p-value /distribution/ under H0.  Otherwise, use 0.05 can save
 ## computing time dramatically.
-pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=500, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"), MTP="BH", ...){
+pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=1000, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"), MTP="BH", ...){
   DIFF <- post - pre                       #the difference map
   Ns <- dim(DIFF); NN <- prod(Ns)
   fit.orig <- ksmooth.md(grids, DIFF, bandwidth=bandwidth, kernel=ks.kernel)
@@ -84,7 +84,7 @@ pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=500, balanced=T
     list("norms"=norms(fit.diff, norm=norm),
          "band.up"=max(fit.diff),
          "band.down"=min(fit.diff),
-         "pcounts"=rev.rank(fit.orig, fit.diff),
+         "pcounts"=rev.rank(T, Tk),
          "wycounts"=as.integer(Uk >= Tord)
          )
   }

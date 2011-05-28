@@ -5,13 +5,17 @@
 \title{Detecting abnormal region from either one pre and one post images
   (\code{pre.post.test}) or several repeated pre and post images (\code{rep.test}).}
 \description{
+  These two functions provides user level interface to conduct
+  hypothesis testing based on spatial smoothing.  Briefly, this
+  procedure can be described as:
   1. kernel smoothing; 2. compute the mean diff image; 3. compute the
   original N-stat; 4. use permutation to generate null distributions;
   5. global hypothesis testing based on N-stats; 6. local hypothesis
-  testing based on mean diff image, both FWER and FDR adjusted p-values.
+  testing based on mean diff image, both FWER and FDR adjusted
+  p-values. Please see the pre-print for more details.
 }
 \usage{
-pre.post.test(grids, pre, post, bandwidth=5.0, perms=500, balanced=TRUE,
+pre.post.test(grids, pre, post, bandwidth=5.0, perms=1000, balanced=TRUE,
 norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"),
 MTP="BH", ...)
 
@@ -35,13 +39,15 @@ rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balan
   \item{rand.comb}{The number of random scan permutations. See 'Details'
   for an explanation.  The default value is 0, which means
   \code{rep.test()} will exhaust all combinations.}
-  \item{balanced}{A logical variable used by the built-in FWER
-    controlling MTP.  Balanced: I assume the difference is symmetrically
+  \item{balanced}{A logical variable used by the built-in multiple
+    testing procedure which controls FWER by simultaneous confidence
+    band.  Balanced: I assume the difference is symmetrically
     distributed around zero, so \code{abs(diff)} is used in the
     hypothesis testing.  Unbalanced: conduct two separate one-sided test
     for \code{diff} to obtain \code{p.up}, \code{p.down}; the two sided
     p-value is then defined as \code{min(1.0, 2*min(p.up, p.down))}.
-    This p-value is conservative and asymptotically exact.  Default: balanced=TRUE.}
+    This p-value is conservative and asymptotically exact.  Default:
+    balanced=TRUE.}
   \item{norm}{A list of functional norms to be used as summary
     statistics for pre/post test and as kernels in N-distance for
     repeated scans test.  Implemented norms: L1, L2, and Linf.  Since
@@ -62,14 +68,17 @@ rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balan
     general lambda distribution and skew-normal distribution, resp.}
 }
 
-\details{Due to the symmetry of the underlying hypothesis testing
-  procedure, the total number of permutations is the number of spatial
-  permutations (controlled by \code{perms}) times the number of pre/post
-  group combinations of scan permutations.  For pre/post test, there are
-  two such scan permutations (pre/post and post/pre).  For repeated scan
-  test with n1 pre scans and n2 post scans, there are n1 + n2 choose n1
-  of them, which can be large but not astronomically large since nobody
-  gets scanned for more than 10 times in a study in practice and
+\details{For repeated scan test (\code{rep.test()}), the total number of
+  permutations is the number of spatial permutations (controlled by
+  \code{perms}) times the number of pre/post group combinations of scan
+  permutations due to the symmetry of the underlying hypothesis testing
+  procedure.  Using this symmetry property can greatly reduce the number
+  of kernel smoothings, which is the most expensive computation.  
+
+  Let there be \eqn{n_1}{n1} pre scans and \eqn{n_2}{n2} post scans,
+  there are \eqn{n_1 + n_2}{n1+n2} choose \eqn{n1}{n1} of them,
+  which can be large but not astronomically large since nobody gets
+  scanned for more than 10 times in a study in practice and
   \code{rep.test()} can happily compute the case of 8 versus 8 scans
   (set \code{perm=1} of course) within minutes.  Unless \code{rand.comb}
   is set manually, \code{rep.test()} exhausts all the combinations
@@ -84,10 +93,12 @@ rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balan
   permutation (controlled by \code{perms}).
 
   For usual nonparametric p-value estimation I recommend using 1000
-  total permutations, so you need to set \code{perms=500} for
+  total permutations, so you need to set \code{perms=1000} for
   \code{pre.post.test()}, or \code{perms=50} for \code{rep.test()} with
   3 pre scans and 3 post scans (because 6 choose 3 is 20, 20 times 50
-  makes 1000). \cr
+  makes 1000).  Because of this symmetry property, processing many
+  repeated scans by\code{rep.test()} is usually much faster than doing a
+  pre/post test! \cr
 
   To further reduce computation cost, you may want to consider using
   smoothed (generalized bootstrap) p-value estimation, which reduces the
@@ -98,22 +109,24 @@ rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balan
 }
 
 \value{A list with components
-
   \item{p.global}{A list of global p-values global p-values computed by
     resampling the specified functional norms of the difference map
     (\code{pre.post.test()}) or the N-distances with specified norms
     (kernels).}
-  \item{fwer.adj.p}{An array of per-voxel p-values adjusted for
-    familywise error rate.}
+  \item{scb.adj.p}{A list of arrays of per-voxel p-values adjusted for
+    familywise error rate by a simultaneous confidence band with different
+    generalized bootstrap method.}
+  \item{wy.adj.p}{An array of per-voxel p-values adjusted for
+    familywise error rate by the Westfall-Young stepdown procedure.}
   \item{fdr.adj.p}{An array of per-voxel p-values adjusted for
-    false discovery rate.}
+    false discovery rate by the Benjamini-Hochberg procedure.}
   \item{fit.diff}{An array of fitted (smoothed) difference map.}
   \item{band.up}{A vector of upper bounds of fitted difference map
     for each permutation.}
   \item{band.down}{A vector of lower bounds of fittted difference map
     for each permutation.}
 }
-\references{[some new papers]}
+\references{[my own paper], [westfall young], [papers about general bootstrap]}
 \author{Xing Qiu}
 \seealso{\code{\link{genboot.test}}, \code{\link{ksmooth.md}},
     \code{\link{Ndist}}, \code{spatial.perm}}
@@ -125,7 +138,7 @@ grid.x <- (1:Nx)*2-1; grid.y <- (1:Ny)*2-1; grid.z <- (1:Nz)*2-1;
 grids <- list(grid.x, grid.y, grid.z)
 Xlist <- list(FA1, FA2, FA3); Ylist <- list(FA4, FA5)
 
-## takes about 35 seconds on my PC (4x 2.33GHz), YMMV.
+## takes about a minute on my PC (4x 2.33GHz), YMMV.
 \dontrun{r1 <- pre.post.test(grids, FA1, FA2)}
 
 ## takes about 20 seconds on my PC (4x 2.33GHz), YMMV.

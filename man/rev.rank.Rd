@@ -1,7 +1,7 @@
 \name{rev.rank}
 \alias{rev.rank}
 %- Also NEED an '\alias' for EACH other topic documented here.
-\title{Computes the reverse rank of \code{x} in \code{x.perm}}
+\title{Computes the reverse rank of one vector in another vector}
 
 \description{ Computes the reverse rank of \code{x} in \code{x.perm}.
   This function can be used to compute permutation p-values
@@ -68,4 +68,4 @@ system.time(p.i3 <- func2(xvec1, x.perm1))
 
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
-\keyword{htest}% __ONLY ONE__ keyword per line
+\keyword{utilities}% __ONLY ONE__ keyword per line

@@ -3,7 +3,7 @@
 \alias{rep.test}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{Detecting abnormal region from either one pre and one post images
-  (\code{pre.post.test}) or several repeated pre and post images (\code{rep.test}).}
+  or several repeated pre and post images.}
 \description{
   These two functions provides user level interface to conduct
   hypothesis testing based on spatial smoothing.  Briefly, this
@@ -24,8 +24,8 @@ rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balan
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{grids}{A list of monotonically increasing coordinate grids.  For
-    example, grids <- list(grid.x=seq(0, 100, 2), grid.y=exp(seq(1, 5,
-    .2))).}
+    example, \code{grids <- list(grid.x=seq(0, 100, 2),
+    grid.y=exp(seq(1, 5, .2))).}}
   \item{pre}{An m-dim array defined on \code{grids}, the "pre" scan.}
   \item{pre.list}{A list of m-dim array defined on \code{grids}, the
     "pre" scans.}

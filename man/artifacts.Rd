@@ -12,7 +12,8 @@ artifacts(grids, center=rep(0, length(grids)), std=0.3, radius=1.0, magnitude=1.
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{grids}{A list of monotonically increasing coordinate grids.  For
-    example, grids <- list(grid.x=seq(0, 100, 2), grid.y=exp(seq(1, 5, .2))).}
+    example, \code{grids <- list(grid.x=seq(0, 100, 2),
+    grid.y=exp(seq(1, 5, .2))).}}
   \item{center}{The center of the artifact.  Default value: the
     origin. Example: \code{center=c(3,5)} defines a center for 2d data.}
   \item{std}{The standard deviation of the (unscaled) Gaussian

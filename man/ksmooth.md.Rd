@@ -1,7 +1,7 @@
 \name{ksmooth.md}
 \alias{ksmooth.md}
 %- Also NEED an '\alias' for EACH other topic documented here.
-\title{Multi-dimensional generalization of \code{ksmooth()} function.}
+\title{Multi-dimensional generalization of ksmooth function.}
 \description{
   Multi-dimensional generalization of \code{ksmooth()} function.
 }
@@ -9,7 +9,8 @@
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{grids}{A list of monotonically increasing coordinate grids.  For
-    example, grids <- list(grid.x=seq(0, 100, 2), grid.y=exp(seq(1, 5, .2))).}
+    example, \code{grids <- list(grid.x=seq(0, 100, 2),
+    grid.y=exp(seq(1, 5, .2))).}}
   \item{yarray}{An m-dim array defined on \code{grids} to be smoothed.}
   \item{bandwidth}{The bandwidth. The kernels are scaled so that their
     quartiles (viewed as probability densities) are at +/- '0.25*bandwidth'.}

@@ -223,3 +223,59 @@ rev.rank <- function(x, x.perm) {
           rv=as.integer(rv), PACKAGE = "ksresamp")
   return(z$rv[ro])
 }
+
+#### converts table format <==> array format
+
+## XYlist: a list of (at least 2d) arrays. zero.rm=TRUE: remove points
+## with constant zero values across all arrays. EPSILON: if the
+## absolute value of an entry is less than EPSILON it will be reset to
+## zero.  You can use this to do simple thresholding.
+arrays2tab <- function(grids, XYlist, zero.rm=FALSE, EPSILON=0.1^6){
+  Ns <- dim(XYlist[[1]]); NN <- prod(Ns); Nd <- length(Ns)
+  Nlist <- length(XYlist)
+  coords <- expand.grid(grids)
+  colnames(coords) <- paste("X", 1:Nd, sep="")
+  vals <- matrix(0, NN, Nlist)
+  colnames(vals) <- paste("Scan", 1:Nlist, sep="")
+  for (j in 1:Nlist) vals[,j] <- Xlist[[j]]
+  tab <- cbind(coords, vals)
+  if (zero.rm){
+    zero.ind <- apply(abs(vals)<EPSILON, 1, all)
+    return (tab[!zero.ind, ])
+  } else {
+    return (tab)
+  }
+}
+
+## This is roughly the inverse of arrays2tab. It assumes the first Nd
+## columns are the coordinates.  grids still need to be specified
+## because a) otherwise there might be places that should be in the
+## grid but not detectable automatically; b) it provides a safe guard
+## against generating a 2M by 2M by 2M array ---- it will eat all your
+## memory and bring down your box in just seconds.  default.val: value
+## to be filled at blank voxels.
+tab2arrays <- function(grids, tab, default.val=0){
+  Ns <- sapply(grids, length); NN <- prod(Ns); Nd <- length(Ns)
+  Nlist <- dim(tab)[2] - Nd
+  ## sanity check.  Ensure that the unique values of the coordinates
+  ## supplied by tab is a subset of those supplied by grids.
+  for (k in 1:Nd){
+    coords.tab <- unique(tab[,k])
+    sanity <- coords.tab %in% grids[[k]]
+    if (!all(sanity)) stop(paste("Coordinates mismatch. The", k, "column of table has the following element(s) which are not in the grids:", paste(coords.tab[!sanity], collapse=", ")))
+  }
+  ## compute the correspondences just once.  I need to compute the
+  ## indices in vector (1d array) form because there is no easy and
+  ## fast way of slicing an array by a given index vector.
+  W <- c(1,cumprod(Ns))                 #weights for each array
+  inds <- 1 + foreach (k=1:Nd, .combine="+") %dopar% {
+    (Ns[k] - rev.rank(tab[,k], grids[[k]]))*W[k]
+  }
+  ## Now assign values from tab to arrays
+  Alist <- foreach (j=1:Nlist) %dopar% {
+    X.k <- array(default.val, Ns)
+    for (i in 1:dim(tab)[1]) X.k[inds[i]] <- tab[i,j+Nd]
+    X.k
+  }
+  return(Alist)
+}

@@ -89,7 +89,8 @@ pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=1000, balanced=
          )
   }
   rawp <- rr$pcounts/(perms*NN)
-  wy.adj.p <- array(cummax(rr$wycounts[NN:1])[NN:1],Ns)/perms
+  wy.adj.p.ord <- array(cummax(rr$wycounts[NN:1])[NN:1],Ns)/perms
+  wy.adj.p <- wy.adj.p.ord[ro]
   band.up <- rr$band.up; band.down <- rr$band.down
   ## Inference
   p.global <- foreach (n=norm, .combine="cbind") %:% foreach (m=method, .combine="c") %dopar% {
@@ -176,7 +177,8 @@ rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.c
          )
   }
   rawp <- rr$pcounts/(perms*K*NN)
-  wy.adj.p <- array(cummax(rr$wycounts[NN:1])[NN:1],Ns)/(perms*K)
+  wy.adj.p.ord <- array(cummax(rr$wycounts[NN:1])[NN:1],Ns)/(perms*K)
+  wy.adj.p <- wy.adj.p.ord[ro]
   band.up <- rr$band.up; band.down <- rr$band.down
   ## Inference
   p.global <- foreach (n=norm, .combine="cbind") %:% foreach (m=method, .combine="c") %dopar% {

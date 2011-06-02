@@ -37,7 +37,7 @@
 \value{An array of the same dimension as \code{yarray}.}
 \references{[kernel smoothing, multi-dim]}
 \author{Xing Qiu}
-\seealso{\code{\link{ksmooth}}}
+\seealso{\code{\link{ksmooth}}, \code{\link{Tps}}}
 \examples{
 grid.x <- seq(1, 255, 2); grid.y <- seq(1, 255, 2); grid.z <- seq(1,5,2)
 grids <- list(grid.x, grid.y, grid.z)

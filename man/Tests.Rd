@@ -125,7 +125,7 @@ rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balan
 }
 \references{[my own paper], [westfall young], [papers about general bootstrap]}
 \author{Xing Qiu}
-\seealso{\code{\link{genboot.test}}, \code{\link{ksmooth.md}},
+\seealso{\code{\link{genboot.test}}, \code{\link{Smooth}},
     \code{\link{Ndist}}, \code{spatial.perm}}
 \examples{
 ## Generate a small data

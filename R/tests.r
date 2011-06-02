@@ -1,22 +1,3 @@
-## wrapper functions for ksmooth (base),
-
-ksmooth.md <- function(grids, yarray, bandwidth=5.0, ...){
-  ## multi-dim ksmooth wrapper.  grids: a list of (marginal)
-  ## coordinates. yarray: an m-dim array of values to be smoothed.
-  ## dim(yarray) must be sapply(grids, length) otherwise this function
-  ## won't work.
-  ## Still needs some work for one dim array.
-  Y <- as.array(yarray)
-  if (any(dim(Y) != sapply(grids, length))){
-    stop("Dimensions of coordinates (grids) and values (yarray) do not match.")
-  } else K <- length(dim(Y))
-  y.k <- Y
-  for (k in 1:K){
-    y.k <- aperm(apply(y.k, seq(K)[-k], function(y) ksmooth(grids[[k]], y, n.points=length(grids[[k]]), bandwidth=bandwidth, ...)$y), append(2:K, 1, k-1))
-  }
-  return(y.k)
-}
-
 ## my own implementation of FWER controlling MTP based on SCB (equal
 ## variance version).  Future work: est. STD for each voxel and use it
 ## as a weight.  It has to be done in the pre.post.test() function
@@ -65,10 +46,10 @@ ksmooth.md <- function(grids, yarray, bandwidth=5.0, ...){
 ## global p-values.  1.0 means no stop at all, which is necessary for
 ## est. p-value /distribution/ under H0.  Otherwise, use 0.05 can save
 ## computing time dramatically.
-pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=1000, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"), MTP="BH", ...){
+pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=1000, balanced=TRUE, norm=c("L1","L2","Linf"), method=c("null", "normal"), MTP="BH", ...){
   DIFF <- post - pre                       #the difference map
   Ns <- dim(DIFF); NN <- prod(Ns)
-  fit.orig <- ksmooth.md(grids, DIFF, bandwidth=bandwidth, kernel=ks.kernel)
+  fit.orig <- Smooth(grids, DIFF, bandwidth=bandwidth, ...)
   norms.orig <- norms(fit.orig)
   ## WY proc
   T <- abs(fit.orig)
@@ -76,8 +57,7 @@ pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=1000, balanced=
 
   rr <- foreach (j=1:perms, .combine=.combfun) %dopar% {
     DIFF.j <- flip(DIFF)
-    ## .norms.ks(grids, DIFF.j, norm, bandwidth=bandwidth, kernel=ks.kernel)
-    fit.diff <- ksmooth.md(grids, DIFF.j, bandwidth=bandwidth, kernel=ks.kernel)
+    fit.diff <- Smooth(grids, DIFF.j, bandwidth=bandwidth, ...)
     Tk <- abs(fit.diff)
     Uk <- cummax(Tk[ord])
     ## return these values to the master node
@@ -94,7 +74,7 @@ pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=1000, balanced=
   band.up <- rr$band.up; band.down <- rr$band.down
   ## Inference
   p.global <- foreach (n=norm, .combine="cbind") %:% foreach (m=method, .combine="c") %dopar% {
-    genboot.test(rr$norms[,n], norms.orig[n], method=m, ...)
+    genboot.test(rr$norms[,n], norms.orig[n], method=m)
   }; dimnames(p.global) <- list(method, norm)
   scb.adj.p <- .p.scb(fit.orig, band.up, band.down, balanced=balanced, method=method)
   return(list("p.global"=p.global,
@@ -130,7 +110,7 @@ pre.post.test <- function(grids, pre, post, bandwidth=5.0, perms=1000, balanced=
 ## writing a robust function, and just in case some morons will test
 ## this program in a completely unintended environment, I decide to
 ## add this layer of flexibility anyway.
-rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"), MTP="BH", ...){
+rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"), method=c("null", "normal"), MTP="BH", ...){
   Nx <- length(pre.list); Ny <- length(post.list); N <- Nx+Ny
   Ns <- dim(pre.list[[1]]); NN <- prod(Ns)
   if (rand.comb == 0){ #enumerate ALL combinations. Works for N <= 20.
@@ -140,10 +120,10 @@ rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.c
   }
   K <- length(combs)
   X.ks <- foreach (x=pre.list) %dopar% {
-    ksmooth.md(grids, x, bandwidth=bandwidth, kernel=ks.kernel)
+    Smooth(grids, x, bandwidth=bandwidth, ...)
   }
   Y.ks <- foreach (y=post.list) %dopar% {
-    ksmooth.md(grids, y, bandwidth=bandwidth, kernel=ks.kernel)
+    Smooth(grids, y, bandwidth=bandwidth, ...)
   }
   fit.orig <- .list.mean(Y.ks) - .list.mean(X.ks)
   norms.orig <- Ndist(X.ks, Y.ks, kernel=norm)
@@ -154,7 +134,7 @@ rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.c
   rr <- foreach (j=1:perms, .combine=.combfun) %dopar% {
     XY <- spatial.perm(c(pre.list, post.list))
     XY.ks <- foreach (x=XY) %do% {
-      ksmooth.md(grids, x, bandwidth=bandwidth, kernel=ks.kernel)
+      Smooth(grids, x, bandwidth=bandwidth, ...)
     }
     ## Now the loop for all combinations
     band.up <- rep(0,K); band.down <- rep(0,K); pcounts <- rep(0,NN)
@@ -182,7 +162,7 @@ rep.test <- function(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.c
   band.up <- rr$band.up; band.down <- rr$band.down
   ## Inference
   p.global <- foreach (n=norm, .combine="cbind") %:% foreach (m=method, .combine="c") %dopar% {
-    genboot.test(rr$norms[,n], norms.orig[n], method=m, ...)
+    genboot.test(rr$norms[,n], norms.orig[n], method=m)
   }; dimnames(p.global) <- list(method, norm)
   scb.adj.p <- .p.scb(fit.orig, band.up, band.down, balanced=balanced, method=method)
   return(list("p.global"=p.global,

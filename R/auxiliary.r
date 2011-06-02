@@ -1,4 +1,5 @@
-## Some useful auxiliary functions
+#### Collections of useful auxiliary functions
+
 
 ## grids: a LIST of monotonically increasing coordinate grids.  For
 ## example, grids <- list(grid.x=seq(0, 100, 2), grid.y=exp(seq(1, 5,

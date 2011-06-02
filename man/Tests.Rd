@@ -16,10 +16,9 @@
 }
 \usage{
 pre.post.test(grids, pre, post, bandwidth=5.0, perms=1000, balanced=TRUE,
-norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"),
-MTP="BH", ...)
+norm=c("L1","L2","Linf"), method=c("null", "normal"), MTP="BH", ...)
 
-rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"), ks.kernel="normal", method=c("null", "normal"), MTP="BH", ...)
+rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"), method=c("null", "normal"), MTP="BH", ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -53,8 +52,6 @@ rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balan
     repeated scans test.  Implemented norms: L1, L2, and Linf.  Since
     the computational cost is very small, by default these functions
     compute all three of them.}
-  \item{ks.kernel}{Either "box" or "normal".  See help of \code{ksmooth()}
-    for more details.  Default to a normal kernel.}
   \item{method}{Smoothing method used by the generalized bootstrap
     p-value estimation.  Valid methods: gld (genral lambda distribution,
     depends on package \code{gld} and is quite slow), sn (skew-normal,
@@ -63,9 +60,9 @@ rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balan
   \item{MTP}{Specify the multiple testing procedure used to compute
     \code{fdr.adj.p}. Default to \code{BH}.  See help of
     \code{p.adjust()} for more options.}
-  \item{...}{other optional parameters passed to \code{starship()} or
-    \code{sn.em()}, which are the parameter estimating function for
-    general lambda distribution and skew-normal distribution, resp.}
+  \item{...}{Other options passed to different smoothers such as a choice
+    of kernel (\code{kernel=box}) or various options of function
+    \code{Tps()} implemented in \pkg{fields}.}
 }
 
 \details{For repeated scan test (\code{rep.test()}), the total number of

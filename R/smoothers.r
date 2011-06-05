@@ -23,7 +23,6 @@
 ## included as an example.
 .tps.md <- function(grids, yarray, bandwidth=5.0, ...){
   x <- expand.grid(grids); Y <- as.vector(yarray)
-  ## mod1 <- fastTps(x, Y, theta=theta, ...)
   mod1 <- fastTps(x, Y, theta=bandwidth, ...)
   return(array(predict(mod1), dim(yarray)))
 }

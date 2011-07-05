@@ -56,12 +56,13 @@ Ndist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
   for (i in 2:N){
     for (j in 1:(i-1)){
       d.ij <- norms(XYlist[[i]] - XYlist[[j]])
-        dist.pairs[,i,j] <- d.ij; dist.pairs[,j,i] <- d.ij
+      ## dist.pairs[,i,j] <- d.ij; dist.pairs[,j,i] <- d.ij
+      dist.pairs[,i,j] <- d.ij
     }}
   X.ind <- 1:Nx; Y.ind <- (Nx+1):N
-  BG <- 2*apply(dist.pairs[, X.ind, Y.ind], 1, mean)
-  WGX <- apply(dist.pairs[, X.ind, X.ind], 1, mean) #symmetry
-  WGY <- apply(dist.pairs[, Y.ind, Y.ind], 1, mean)
+  BG <- 2*apply(dist.pairs[, Y.ind, X.ind], 1, mean)
+  WGX <- 2*apply(dist.pairs[, X.ind, X.ind], 1, mean) #symmetry
+  WGY <- 2*apply(dist.pairs[, Y.ind, Y.ind], 1, mean)
   return(sqrt(BG-WGX-WGY))
 }
 
@@ -70,10 +71,11 @@ CNdist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
   Nx <- length(Xlist); Ny <- length(Ylist); N <- Nx + Ny
   XYlist <- c(Xlist,Ylist)
   dist.pairs <- array(0, c(length(kernels),N,N), dimnames=list(kernels,1:N,1:N))
+  ##lower triangle only.
   for (i in 2:N){
     for (j in 1:(i-1)){
       d.ij <- norms(XYlist[[i]] - XYlist[[j]])
-        dist.pairs[,i,j] <- d.ij
+      dist.pairs[,j,i] <- d.ij
     }}
 
   ndists <- 1:length(kernels); names(ndists) <- kernels
@@ -115,6 +117,32 @@ Ndist.perm <- function(Xlist, Ylist, combs, kernels=c("L1", "L2", "Linf")){
   }
   return(my.Ns)
 }
+
+## C implementation
+CNdist.perm <- function(Xlist, Ylist, combs, kernels=c("L1", "L2", "Linf")){
+  Nx <- length(Xlist); Ny <- length(Ylist); N <- Nx + Ny;
+  K <- length(combs); combsvec <- do.call("c", combs)
+  XYlist <- c(Xlist,Ylist)
+  dist.pairs <- array(0, c(length(kernels),N,N), dimnames=list(kernels,1:N,1:N))
+  for (i in 2:N){
+    for (j in 1:(i-1)){
+      d.ij <- norms(XYlist[[i]] - XYlist[[j]])
+      dist.pairs[,i,j] <- d.ij; dist.pairs[,j,i] <- d.ij
+    }}
+  my.Ns <- matrix(0, nrow=length(combs), ncol=length(kernels))
+  colnames(my.Ns) <- kernels  
+  for (kn in 1:length(kernels)){
+    ndistvec.k <- rep(0,K)
+    z <- .C("ndist_from_distmat_perm", as.double(dist.pairs[kn,,]),
+            as.integer(combsvec), as.integer(K), as.integer(N),
+            as.integer(Nx), ndistvec=as.double(ndistvec.k),
+            PACKAGE = "ksresamp")
+    my.Ns[,kn] <- z$ndistvec
+  }
+  return(my.Ns)
+}
+
+
 
 ## flip: sort of wild bootstrap for an array.  Group action: G \cong 2^N.
 flip <- function(diff.array){

@@ -79,9 +79,9 @@ CNdist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
   ndists <- 1:length(kernels); names(ndists) <- kernels
   for (kn in 1:length(kernels)){
     ndist.k <- 0.0
-    z <- .C("ndist_from_distmat", as.double(dist.pairs[k,,]), as.integer(N),
+    z <- .C("ndist_from_distmat", as.double(dist.pairs[kn,,]), as.integer(N),
             as.integer(Nx), ndist=as.double(ndist.k), PACKAGE = "ksresamp")
-    ndists[k] <- z$ndist
+    ndists[kn] <- z$ndist
   }
   return(ndists)
 }

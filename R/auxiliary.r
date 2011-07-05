@@ -65,6 +65,27 @@ Ndist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
   return(sqrt(BG-WGX-WGY))
 }
 
+## The C implementation
+CNdist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
+  Nx <- length(Xlist); Ny <- length(Ylist); N <- Nx + Ny
+  XYlist <- c(Xlist,Ylist)
+  dist.pairs <- array(0, c(length(kernels),N,N), dimnames=list(kernels,1:N,1:N))
+  for (i in 2:N){
+    for (j in 1:(i-1)){
+      d.ij <- norms(XYlist[[i]] - XYlist[[j]])
+        dist.pairs[,i,j] <- d.ij
+    }}
+
+  ndists <- 1:length(kernels); names(ndists) <- kernels
+  for (kn in 1:length(kernels)){
+    ndist.k <- 0.0
+    z <- .C("ndist_from_distmat", as.double(dist.pairs[k,,]), as.integer(N),
+            as.integer(Nx), ndist=as.double(ndist.k), PACKAGE = "ksresamp")
+    ndists[k] <- z$ndist
+  }
+  return(ndists)
+}
+
 ## This is the permutation version of Ndist.  It employes a trick to
 ## GREATLY reduce the computing time: it first computes all pairwise
 ## distances, then use permutation of these NUMBERS to compute the

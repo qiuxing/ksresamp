@@ -18,7 +18,9 @@
 pre.post.test(grids, pre, post, bandwidth=5.0, perms=1000, balanced=TRUE,
 norm=c("L1","L2","Linf"), method=c("null", "normal"), MTP="BH", ...)
 
-rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50, rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"), method=c("null", "normal"), MTP="BH", ...)
+rep.test(grids, pre.list, post.list, bandwidth=5.0, perms=50,
+rand.comb=0, balanced=TRUE, norm=c("L1","L2","Linf"),
+method=c("null", "normal"), MTP="BH", ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

@@ -58,7 +58,6 @@ void ndist_from_distmat_perm (double *distmat, int *combs, int *K, int *n, int *
       }
     }
     BG = TD -WGX -WGY;
-    Rprintf("TD=%.4f  BG=%.4f  WGX=%.4f  WGY=%.4f\n", TD, BG, WGX, WGY);
     WGX /=(nx*nx*0.5); WGY /=(ny*ny*0.5); BG /=(nx*ny*0.5);
     ndistvec[k] = sqrt(BG -WGX -WGY);
   }

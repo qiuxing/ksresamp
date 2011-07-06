@@ -43,31 +43,11 @@ norms <- function(Y, norm=c("L1", "L2", "Linf")){
   return(rr)
 }
 
-## An R implementation of multivariate N-stat, 30 times faster than
-## ksmooth, so a) I don't have to re-write it in C; b) I can afford to
-## compute all 3 kernels (the default option of function norms()).
+## A C implementation of multivariate N-stat. This procedure is 30
+## times faster than ksmooth, so a) I don't have to re-write it in C;
+## b) I can afford to compute all 3 kernels (the default option of
+## function norms()).  The C implementation
 Ndist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
-  ## Xlist, Ylist are lists of arrays/vectors.  Default Kernels is set
-  ## to Linf. BG: between group dists; WGX, WGY are within group
-  ## dists.
-  Nx <- length(Xlist); Ny <- length(Ylist); N <- Nx + Ny
-  XYlist <- c(Xlist,Ylist)
-  dist.pairs <- array(0, c(length(kernels),N,N), dimnames=list(kernels,1:N,1:N))
-  for (i in 2:N){
-    for (j in 1:(i-1)){
-      d.ij <- norms(XYlist[[i]] - XYlist[[j]])
-      ## dist.pairs[,i,j] <- d.ij; dist.pairs[,j,i] <- d.ij
-      dist.pairs[,i,j] <- d.ij
-    }}
-  X.ind <- 1:Nx; Y.ind <- (Nx+1):N
-  BG <- 2*apply(dist.pairs[, Y.ind, X.ind], 1, mean)
-  WGX <- 2*apply(dist.pairs[, X.ind, X.ind], 1, mean) #symmetry
-  WGY <- 2*apply(dist.pairs[, Y.ind, Y.ind], 1, mean)
-  return(sqrt(BG-WGX-WGY))
-}
-
-## The C implementation
-CNdist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
   Nx <- length(Xlist); Ny <- length(Ylist); N <- Nx + Ny
   XYlist <- c(Xlist,Ylist)
   dist.pairs <- array(0, c(length(kernels),N,N), dimnames=list(kernels,1:N,1:N))
@@ -75,15 +55,15 @@ CNdist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
   for (i in 2:N){
     for (j in 1:(i-1)){
       d.ij <- norms(XYlist[[i]] - XYlist[[j]])
-      dist.pairs[,j,i] <- d.ij; dist.pairs[,i,j] <- d.ij
+      dist.pairs[,j,i] <- d.ij;
     }}
 
   ndists <- 1:length(kernels); names(ndists) <- kernels
   for (kn in 1:length(kernels)){
     ndist.k <- 0.0
-    z <- .C("ndist_from_distmat", as.double(dist.pairs[kn,,]), as.integer(N),
-            as.integer(Nx), ndist=as.double(ndist.k), PACKAGE = "ksresamp")
-    ndists[kn] <- z$ndist
+    ndists[kn] <- .C("ndist_from_distmat", as.double(dist.pairs[kn,,]),
+                     as.integer(N), as.integer(Nx),
+                     ndist=as.double(ndist.k), PACKAGE = "ksresamp")$ndist
   }
   return(ndists)
 }
@@ -97,52 +77,29 @@ CNdist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
 ## foreach(icount(rand.comb)) %do% sample(N).  See rep.test()
 ## for more details.
 
+## The C implementation can be 40~50 times faster than the R
+## implementation for large number of combinations.
 Ndist.perm <- function(Xlist, Ylist, combs, kernels=c("L1", "L2", "Linf")){
-  Nx <- length(Xlist); Ny <- length(Ylist); N <- Nx + Ny
-  XYlist <- c(Xlist,Ylist)
-  dist.pairs <- array(0, c(length(kernels),N,N), dimnames=list(kernels,1:N,1:N))
-  for (i in 2:N){
-    for (j in 1:(i-1)){
-      d.ij <- norms(XYlist[[i]] - XYlist[[j]])
-        dist.pairs[,i,j] <- d.ij; dist.pairs[,j,i] <- d.ij
-    }}
-  my.Ns <- matrix(0, nrow=length(combs), ncol=length(kernels))
-  colnames(my.Ns) <- kernels  
-  for (k in 1:length(combs)){
-    X.ind <- combs[[k]][1:Nx]; Y.ind <- combs[[k]][(Nx+1):N]
-    BG <- 2*apply(dist.pairs[, X.ind, Y.ind], 1, mean)
-    WGX <- apply(dist.pairs[, X.ind, X.ind], 1, mean) #symmetry
-    WGY <- apply(dist.pairs[, Y.ind, Y.ind], 1, mean)
-    my.Ns[k,] <- sqrt(BG-WGX-WGY)
-  }
-  return(my.Ns)
-}
-
-## C implementation
-CNdist.perm <- function(Xlist, Ylist, combs, kernels=c("L1", "L2", "Linf")){
   Nx <- length(Xlist); Ny <- length(Ylist); N <- Nx + Ny;
-  K <- length(combs); combsvec <- do.call("c", combs)
+  K <- length(combs); combsvec <- do.call("c", combs)-1
   XYlist <- c(Xlist,Ylist)
   dist.pairs <- array(0, c(length(kernels),N,N), dimnames=list(kernels,1:N,1:N))
   for (i in 2:N){
     for (j in 1:(i-1)){
       d.ij <- norms(XYlist[[i]] - XYlist[[j]])
-      dist.pairs[,i,j] <- d.ij; dist.pairs[,j,i] <- d.ij
+      dist.pairs[,j,i] <- d.ij
     }}
   my.Ns <- matrix(0, nrow=length(combs), ncol=length(kernels))
   colnames(my.Ns) <- kernels  
   for (kn in 1:length(kernels)){
     ndistvec.k <- rep(0,K)
-    z <- .C("ndist_from_distmat_perm", as.double(dist.pairs[kn,,]),
-            as.integer(combsvec), as.integer(K), as.integer(N),
-            as.integer(Nx), ndistvec=as.double(ndistvec.k),
-            PACKAGE = "ksresamp")
-    my.Ns[,kn] <- z$ndistvec
+    my.Ns[,kn] <- .C("ndist_from_distmat_perm", as.double(dist.pairs[kn,,]),
+                     as.integer(combsvec), as.integer(K), as.integer(N),
+                     as.integer(Nx), ndistvec=as.double(ndistvec.k),
+                     PACKAGE = "ksresamp")$ndistvec
   }
   return(my.Ns)
 }
-
-
 
 ## flip: sort of wild bootstrap for an array.  Group action: G \cong 2^N.
 flip <- function(diff.array){

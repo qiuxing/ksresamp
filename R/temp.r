@@ -170,3 +170,45 @@
 ##   array(apply(matrix(unlist(Alist), nrow=prod(Ns)), 1, mean), Ns)
 ## }
 
+RNdist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
+  ## Xlist, Ylist are lists of arrays/vectors.  Default Kernels is set
+  ## to Linf. BG: between group dists; WGX, WGY are within group
+  ## dists.
+  Nx <- length(Xlist); Ny <- length(Ylist); N <- Nx + Ny
+  XYlist <- c(Xlist,Ylist)
+  dist.pairs <- array(0, c(length(kernels),N,N), dimnames=list(kernels,1:N,1:N))
+  for (i in 2:N){
+    for (j in 1:(i-1)){
+      d.ij <- norms(XYlist[[i]] - XYlist[[j]])
+      ## dist.pairs[,i,j] <- d.ij; dist.pairs[,j,i] <- d.ij
+      dist.pairs[,i,j] <- d.ij; dist.pairs[,j,i] <- d.ij
+    }}
+  X.ind <- 1:Nx; Y.ind <- (Nx+1):N
+  BG <- 2*apply(dist.pairs[, Y.ind, X.ind], 1, mean)
+  WGX <- apply(dist.pairs[, X.ind, X.ind], 1, mean) #symmetry
+  WGY <- apply(dist.pairs[, Y.ind, Y.ind], 1, mean)
+  return(sqrt(BG-WGX-WGY))
+}
+
+
+RNdist.perm <- function(Xlist, Ylist, combs, kernels=c("L1", "L2", "Linf")){
+  Nx <- length(Xlist); Ny <- length(Ylist); N <- Nx + Ny
+  XYlist <- c(Xlist,Ylist)
+  dist.pairs <- array(0, c(length(kernels),N,N), dimnames=list(kernels,1:N,1:N))
+  for (i in 2:N){
+    for (j in 1:(i-1)){
+      d.ij <- norms(XYlist[[i]] - XYlist[[j]])
+        dist.pairs[,i,j] <- d.ij; dist.pairs[,j,i] <- d.ij;
+    }}
+  my.Ns <- matrix(0, nrow=length(combs), ncol=length(kernels))
+  colnames(my.Ns) <- kernels  
+  for (k in 1:length(combs)){
+    X.ind <- combs[[k]][1:Nx]; Y.ind <- combs[[k]][(Nx+1):N]
+    BG <- 2*apply(dist.pairs[, X.ind, Y.ind], 1, mean)
+    WGX <- apply(dist.pairs[, X.ind, X.ind], 1, mean)
+    WGY <- apply(dist.pairs[, Y.ind, Y.ind], 1, mean)
+    my.Ns[k,] <- sqrt(BG-WGX-WGY)
+  }
+  return(my.Ns)
+}
+

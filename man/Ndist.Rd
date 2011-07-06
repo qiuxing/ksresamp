@@ -36,9 +36,7 @@ Ndist.perm(Xlist, Ylist, combs, kernels=c("L1", "L2", "Linf"))
 
 \details{N-distance is numerically stable (no matrix inverse involved at
   all) and quite capable of detecting location shift (almost as powerful
-  as t-test).  These functions are written in pure R because computing
-  N-statistics takes only a very small fraction of total computing
-  time.  Maybe in the future they will be re-implemented by C.
+  as t-test).  These functions are implemented in C for efficiency.
 }
 
 \value{A list of N-distances using different kernels (\code{Ndist()}) or

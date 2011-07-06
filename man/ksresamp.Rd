@@ -19,9 +19,9 @@ implicit parallelization provided by foreach and doMC packages.
 \tabular{ll}{
 Package: \tab ksresamp\cr
 Type: \tab Package\cr
-Version: \tab 0.01\cr
+Version: \tab 0.7\cr
 Date: \tab 2011-05-06\cr
-License: \tab GPL 2.0\cr
+License: \tab GPL (>=2.0)\cr
 LazyLoad: \tab yes\cr
 }
 Please see the help files of individual functions.

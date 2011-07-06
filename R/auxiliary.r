@@ -75,7 +75,7 @@ CNdist <- function(Xlist, Ylist, kernels=c("L1", "L2", "Linf")){
   for (i in 2:N){
     for (j in 1:(i-1)){
       d.ij <- norms(XYlist[[i]] - XYlist[[j]])
-      dist.pairs[,j,i] <- d.ij
+      dist.pairs[,j,i] <- d.ij; dist.pairs[,i,j] <- d.ij
     }}
 
   ndists <- 1:length(kernels); names(ndists) <- kernels
